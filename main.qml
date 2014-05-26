@@ -20,9 +20,9 @@ Window {
     }
 
     Ring {
-        SequentialAnimation on div {
-            NumberAnimation { to: 50; duration: 5000; easing.type: Easing.InOutQuad }
-            NumberAnimation { to: 4; duration: 5000; easing.type: Easing.InOutQuad }
+        SequentialAnimation on angle {
+            NumberAnimation { to: 360; duration: 5000; easing.type: Easing.InOutQuad }
+            NumberAnimation { to: 0; duration: 5000; easing.type: Easing.InOutQuad }
             loops: Animation.Infinite
         }
     }
