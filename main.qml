@@ -20,9 +20,10 @@ Window {
     }
 
     Ring {
-        //anchors.fill: parent
-        scale: 2
-        //x: 100
-        //y: 100
+        SequentialAnimation on div {
+            NumberAnimation { to: 50; duration: 5000; easing.type: Easing.InOutQuad }
+            NumberAnimation { to: 4; duration: 5000; easing.type: Easing.InOutQuad }
+            loops: Animation.Infinite
+        }
     }
 }
