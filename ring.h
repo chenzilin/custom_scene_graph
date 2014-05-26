@@ -3,11 +3,11 @@
 
 #include <QQuickItem>
 
-class ring : public QQuickItem
+class Ring : public QQuickItem
 {
     Q_OBJECT
 public:
-    explicit ring(QQuickItem *parent = 0);
+    explicit Ring(QQuickItem *parent = 0);
     QSGNode *updatePaintNode(QSGNode *, UpdatePaintNodeData *);
 
 signals:
