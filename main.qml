@@ -20,10 +20,19 @@ Window {
     }
 
     Ring {
+        div: 40
         SequentialAnimation on angle {
             NumberAnimation { to: 360; duration: 5000; easing.type: Easing.InOutQuad }
             NumberAnimation { to: 0; duration: 5000; easing.type: Easing.InOutQuad }
             loops: Animation.Infinite
         }
+    }
+
+    Rectangle {
+        x: 100
+        y: 80
+        width: 120
+        height: 30
+        color: "black"
     }
 }

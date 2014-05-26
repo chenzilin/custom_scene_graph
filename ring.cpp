@@ -65,25 +65,31 @@ void Ring::setDiv(int v)
 
 QSGNode *Ring::updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData *)
 {
-    QSGGeometryNode *node;
+    QSGTransformNode *tnode;
+    QSGGeometryNode *gnode;
     QSGGeometry *geometry;
 
     if (!oldNode) {
         mRegenGeometry = true;
         mRegenColor = true;
-        node = new QSGGeometryNode;
+        gnode = new QSGGeometryNode;
         geometry = new QSGGeometry(QSGGeometry::defaultAttributes_ColoredPoint2D(), 2 * mDiv + 2);
         geometry->setDrawingMode(GL_TRIANGLE_STRIP);
-        node->setGeometry(geometry);
-        node->setFlag(QSGNode::OwnsGeometry);
+        gnode->setGeometry(geometry);
+        gnode->setFlag(QSGNode::OwnsGeometry);
 
         QSGVertexColorMaterial *material = new QSGVertexColorMaterial;
-        node->setMaterial(material);
-        node->setFlag(QSGNode::OwnsMaterial);
+        gnode->setMaterial(material);
+        gnode->setFlag(QSGNode::OwnsMaterial);
+
+        gnode->setFlag(QSGNode::OwnedByParent);
+        tnode = new QSGTransformNode;
+        tnode->appendChildNode(gnode);
     }
     else {
-        node = static_cast<QSGGeometryNode *>(oldNode);
-        geometry = node->geometry();
+        tnode = static_cast<QSGTransformNode *>(oldNode);
+        gnode = static_cast<QSGGeometryNode *>(tnode->firstChild());
+        geometry = gnode->geometry();
         if (mReallocGeometry) {
             geometry->allocate(2 * mDiv + 2);
             mReallocGeometry = false;
@@ -113,13 +119,20 @@ QSGNode *Ring::updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData *)
             vertices[i * 2].r = vertices[i * 2 + 1].r = color.red();
             vertices[i * 2].b = vertices[i * 2 + 1].b = color.blue();
             vertices[i * 2].g = vertices[i * 2 + 1].g = color.green();
-            vertices[i * 2].a = vertices[i * 2 + 1].a = color.alpha();
+            vertices[i * 2].a = 128;
+            vertices[i * 2 + 1].a = 255;
         }
+        QMatrix4x4 mat;
+        mat.setToIdentity();
+        mat.translate(mRo, mRo, 0);
+        mat.rotate(mAngle, 0, 0, -1);
+        mat.translate(-mRo, -mRo, 0);
+        tnode->setMatrix(mat);
         mRegenColor = false;
     }
 
-    node->markDirty(QSGNode::DirtyGeometry);
+    gnode->markDirty(QSGNode::DirtyGeometry);
 
     qDebug() << "paint";
-    return node;
+    return tnode;
 }
