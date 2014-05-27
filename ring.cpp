@@ -1,7 +1,7 @@
 #include "ring.h"
 #include <QSGNode>
 #include <QtMath>
-#include <QSGVertexColorMaterial>
+#include <QSGTextureMaterial>
 #include <QDebug>
 
 Ring::Ring(QQuickItem *parent)
@@ -75,6 +75,26 @@ void Ring::setDiv(int v)
     update();
 }
 
+void Ring::setSrc1(const QString &v)
+{
+    if (v == mSrc1)
+        return;
+
+    mSrc1 = v;
+    emit src1Changed(v);
+    update();
+}
+
+void Ring::setSrc2(const QString &v)
+{
+    if (v == mSrc2)
+        return;
+
+    mSrc2 = v;
+    emit src2Changed(v);
+    update();
+}
+
 QSGNode *Ring::updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData *)
 {
     QSGGeometryNode *node;
@@ -86,12 +106,12 @@ QSGNode *Ring::updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData *)
 
     if (!oldNode) {
         node = new QSGGeometryNode;
-        geometry = new QSGGeometry(QSGGeometry::defaultAttributes_ColoredPoint2D(), vn);
+        geometry = new QSGGeometry(QSGGeometry::defaultAttributes_TexturedPoint2D(), vn);
         geometry->setDrawingMode(GL_TRIANGLE_STRIP);
         node->setGeometry(geometry);
         node->setFlag(QSGNode::OwnsGeometry);
 
-        QSGVertexColorMaterial *material = new QSGVertexColorMaterial;
+        QSGTextureMaterial *material = new QSGTextureMaterial;
         node->setMaterial(material);
         node->setFlag(QSGNode::OwnsMaterial);
     }
@@ -102,7 +122,7 @@ QSGNode *Ring::updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData *)
     }
 
     int n = 0;
-    QSGGeometry::ColoredPoint2D *vertices = geometry->vertexDataAsColoredPoint2D();
+    QSGGeometry::TexturedPoint2D *vertices = geometry->vertexDataAsTexturedPoint2D();
 
     if (sp) {
         for (int i = 0; i <= sp; i++, n += 2) {
