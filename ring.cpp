@@ -5,8 +5,8 @@
 #include <QDebug>
 
 Ring::Ring(QQuickItem *parent)
-    : QQuickItem(parent), mRo(100), mRi(50), mAngle(0), mDiv(20),
-      mRegenGeometry(false), mRegenColor(false), mReallocGeometry(false)
+    : QQuickItem(parent), mRo(100), mRi(50),
+      mStartAngle(0), mEndAngle(360), mAngle(0), mDiv(20)
 {
     setWidth(mRo * 2);
     setHeight(mRo * 2);
@@ -21,8 +21,6 @@ void Ring::setRo(qreal v)
     mRo = v;
     setWidth(mRo * 2);
     setHeight(mRo * 2);
-    mRegenGeometry = true;
-    mRegenColor = true;
     emit roChanged(v);
     update();
 }
@@ -33,9 +31,27 @@ void Ring::setRi(qreal v)
         return;
 
     mRi = v;
-    mRegenGeometry = true;
-    mRegenColor = true;
     emit riChanged(v);
+    update();
+}
+
+void Ring::setStartAngle(qreal v)
+{
+    if (v == mStartAngle)
+        return;
+
+    mStartAngle = v;
+    emit startAngleChanged(v);
+    update();
+}
+
+void Ring::setEndAngle(qreal v)
+{
+    if (v == mEndAngle)
+        return;
+
+    mEndAngle = v;
+    emit endAngleChanged(v);
     update();
 }
 
@@ -45,7 +61,6 @@ void Ring::setAngle(qreal v)
         return;
 
     mAngle = v;
-    mRegenColor = true;
     emit angleChanged(v);
     update();
 }
@@ -56,83 +71,61 @@ void Ring::setDiv(int v)
         return;
 
     mDiv = v;
-    mRegenGeometry = true;
-    mRegenColor = true;
-    mReallocGeometry = true;
     emit divChanged(v);
     update();
 }
 
 QSGNode *Ring::updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData *)
 {
-    QSGTransformNode *tnode;
-    QSGGeometryNode *gnode;
+    QSGGeometryNode *node;
     QSGGeometry *geometry;
 
+    int sp = qCeil((mAngle - mStartAngle) / (mEndAngle - mStartAngle) * mDiv);
+    int ep = qCeil((mEndAngle - mAngle) / (mEndAngle - mStartAngle) * mDiv);
+    int vn = (sp ? 2 * (sp + 1) : 0) + (ep ? 2 * (ep + 1) : 0);
+
     if (!oldNode) {
-        mRegenGeometry = true;
-        mRegenColor = true;
-        gnode = new QSGGeometryNode;
-        geometry = new QSGGeometry(QSGGeometry::defaultAttributes_ColoredPoint2D(), 2 * mDiv + 2);
+        node = new QSGGeometryNode;
+        geometry = new QSGGeometry(QSGGeometry::defaultAttributes_ColoredPoint2D(), vn);
         geometry->setDrawingMode(GL_TRIANGLE_STRIP);
-        gnode->setGeometry(geometry);
-        gnode->setFlag(QSGNode::OwnsGeometry);
+        node->setGeometry(geometry);
+        node->setFlag(QSGNode::OwnsGeometry);
 
         QSGVertexColorMaterial *material = new QSGVertexColorMaterial;
-        gnode->setMaterial(material);
-        gnode->setFlag(QSGNode::OwnsMaterial);
-
-        gnode->setFlag(QSGNode::OwnedByParent);
-        tnode = new QSGTransformNode;
-        tnode->appendChildNode(gnode);
+        node->setMaterial(material);
+        node->setFlag(QSGNode::OwnsMaterial);
     }
     else {
-        tnode = static_cast<QSGTransformNode *>(oldNode);
-        gnode = static_cast<QSGGeometryNode *>(tnode->firstChild());
-        geometry = gnode->geometry();
-        if (mReallocGeometry) {
-            geometry->allocate(2 * mDiv + 2);
-            mReallocGeometry = false;
-        }
+        node = static_cast<QSGGeometryNode *>(oldNode);
+        geometry = node->geometry();
+        geometry->allocate(vn);
     }
 
+    int n = 0;
     QSGGeometry::ColoredPoint2D *vertices = geometry->vertexDataAsColoredPoint2D();
 
-    if (mRegenGeometry) {
-        for (int i = 0; i <= mDiv; i++) {
-            vertices[i * 2].x = mRo + mRo * qCos(2 * M_PI * i / mDiv);
-            vertices[i * 2].y = mRo + mRo * qSin(2 * M_PI * i / mDiv);
-            vertices[i * 2 + 1].x = mRo + mRi * qCos(2 * M_PI * i / mDiv);
-            vertices[i * 2 + 1].y = mRo + mRi * qSin(2 * M_PI * i / mDiv);
+    if (sp) {
+        for (int i = 0; i <= sp; i++, n += 2) {
+            qreal alpha = ((mAngle - mStartAngle) * i / sp + mStartAngle) * M_PI / 180;
+            vertices[n].set(mRo + mRo * qCos(alpha), mRo + mRo * qSin(alpha),
+                            230, 147, 67, 255);
+            vertices[n + 1].set(mRo + mRi * qCos(alpha), mRo + mRi * qSin(alpha),
+                                55, 12, 3, 255);
         }
-        mRegenGeometry = false;
     }
 
-    if (mRegenColor) {
-        for (int i = 0; i <= mDiv; i++) {
-            QColor color;
-            if (360.0 * i / mDiv < mAngle)
-                color = QColor(255, 0, 0, 128);
-            else
-                color = QColor(0, 255, 0, 128);
-
-            vertices[i * 2].r = vertices[i * 2 + 1].r = color.red();
-            vertices[i * 2].b = vertices[i * 2 + 1].b = color.blue();
-            vertices[i * 2].g = vertices[i * 2 + 1].g = color.green();
-            vertices[i * 2].a = 128;
-            vertices[i * 2 + 1].a = 255;
+    if (ep) {
+        for (int i = 0; i <= ep; i++, n += 2) {
+            qreal alpha = ((mEndAngle - mAngle) * i / ep + mAngle) * M_PI / 180;
+            vertices[n].set(mRo + mRo * qCos(alpha), mRo + mRo * qSin(alpha),
+                            189, 35, 3, 255);
+            vertices[n + 1].set(mRo + mRi * qCos(alpha), mRo + mRi * qSin(alpha),
+                                63, 12, 0, 255);
         }
-        QMatrix4x4 mat;
-        mat.setToIdentity();
-        mat.translate(mRo, mRo, 0);
-        mat.rotate(mAngle, 0, 0, -1);
-        mat.translate(-mRo, -mRo, 0);
-        tnode->setMatrix(mat);
-        mRegenColor = false;
     }
 
-    gnode->markDirty(QSGNode::DirtyGeometry);
+    node->markDirty(QSGNode::DirtyGeometry);
 
-    qDebug() << "paint";
-    return tnode;
+    //qDebug() << "paint";
+    return node;
 }
