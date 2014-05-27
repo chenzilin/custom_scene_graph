@@ -4,8 +4,8 @@ import Ring 1.0
 
 Window {
     visible: true
-    width: 360
-    height: 360
+    width: 480
+    height: 480
 
     MouseArea {
         anchors.fill: parent
@@ -22,6 +22,8 @@ Window {
     Ring {
         id: ring
         div: 40
+        ro: 220
+        ri: 150
         angle: 120
         startAngle: 120
         endAngle: 420
