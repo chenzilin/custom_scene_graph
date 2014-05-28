@@ -1,12 +1,14 @@
 #include "ring.h"
 #include <QSGNode>
 #include <QtMath>
+#include <QQuickWindow>
 #include <QSGTextureMaterial>
 #include <QDebug>
 
 Ring::Ring(QQuickItem *parent)
     : QQuickItem(parent), mRo(100), mRi(50),
-      mStartAngle(0), mEndAngle(360), mAngle(0), mDiv(20)
+      mStartAngle(0), mEndAngle(360), mAngle(0), mDiv(20),
+      mUpdateVertex(false), mUpdateTexture(false), mUpdateGeometry(false)
 {
     setWidth(mRo * 2);
     setHeight(mRo * 2);
@@ -21,6 +23,7 @@ void Ring::setRo(qreal v)
     mRo = v;
     setWidth(mRo * 2);
     setHeight(mRo * 2);
+    mUpdateVertex = true;
     emit roChanged(v);
     update();
 }
@@ -31,6 +34,7 @@ void Ring::setRi(qreal v)
         return;
 
     mRi = v;
+    mUpdateVertex = true;
     emit riChanged(v);
     update();
 }
@@ -41,6 +45,7 @@ void Ring::setStartAngle(qreal v)
         return;
 
     mStartAngle = v;
+    mUpdateVertex = true;
     emit startAngleChanged(v);
     update();
 }
@@ -51,6 +56,7 @@ void Ring::setEndAngle(qreal v)
         return;
 
     mEndAngle = v;
+    mUpdateVertex = true;
     emit endAngleChanged(v);
     update();
 }
@@ -61,6 +67,7 @@ void Ring::setAngle(qreal v)
         return;
 
     mAngle = v;
+    mUpdateTexture = true;
     emit angleChanged(v);
     update();
 }
@@ -71,27 +78,18 @@ void Ring::setDiv(int v)
         return;
 
     mDiv = v;
+    mUpdateGeometry = true;
     emit divChanged(v);
     update();
 }
 
-void Ring::setSrc1(const QString &v)
+void Ring::setTex(const QString &v)
 {
-    if (v == mSrc1)
+    if (v == mTex)
         return;
 
-    mSrc1 = v;
-    emit src1Changed(v);
-    update();
-}
-
-void Ring::setSrc2(const QString &v)
-{
-    if (v == mSrc2)
-        return;
-
-    mSrc2 = v;
-    emit src2Changed(v);
+    mTex = v;
+    emit texChanged(v);
     update();
 }
 
@@ -100,52 +98,55 @@ QSGNode *Ring::updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData *)
     QSGGeometryNode *node;
     QSGGeometry *geometry;
 
-    int sp = qCeil((mAngle - mStartAngle) / (mEndAngle - mStartAngle) * mDiv);
-    int ep = qCeil((mEndAngle - mAngle) / (mEndAngle - mStartAngle) * mDiv);
-    int vn = (sp ? 2 * (sp + 1) : 0) + (ep ? 2 * (ep + 1) : 0);
-
     if (!oldNode) {
         node = new QSGGeometryNode;
-        geometry = new QSGGeometry(QSGGeometry::defaultAttributes_TexturedPoint2D(), vn);
+        geometry = new QSGGeometry(QSGGeometry::defaultAttributes_TexturedPoint2D(), 2 * (mDiv + 1));
         geometry->setDrawingMode(GL_TRIANGLE_STRIP);
         node->setGeometry(geometry);
         node->setFlag(QSGNode::OwnsGeometry);
 
         QSGTextureMaterial *material = new QSGTextureMaterial;
+        QSGTexture *texture = window()->createTextureFromImage(QImage(mTex));
+        texture->setFiltering(QSGTexture::Linear);
+        material->setTexture(texture);
         node->setMaterial(material);
         node->setFlag(QSGNode::OwnsMaterial);
     }
     else {
         node = static_cast<QSGGeometryNode *>(oldNode);
         geometry = node->geometry();
-        geometry->allocate(vn);
+        if (mUpdateGeometry)
+            geometry->allocate(2 * (mDiv + 1));
     }
 
-    int n = 0;
     QSGGeometry::TexturedPoint2D *vertices = geometry->vertexDataAsTexturedPoint2D();
 
-    if (sp) {
-        for (int i = 0; i <= sp; i++, n += 2) {
-            qreal alpha = ((mAngle - mStartAngle) * i / sp + mStartAngle) * M_PI / 180;
-            vertices[n].set(mRo + mRo * qCos(alpha), mRo + mRo * qSin(alpha),
-                            230, 147, 67, 255);
-            vertices[n + 1].set(mRo + mRi * qCos(alpha), mRo + mRi * qSin(alpha),
-                                55, 12, 3, 255);
+    if (mUpdateGeometry || mUpdateVertex) {
+        for (int i = 0; i <= mDiv; i++) {
+            qreal alpha = ((mEndAngle - mStartAngle) * i / mDiv + mStartAngle) * M_PI / 180;
+            qreal cosAlpha = qCos(alpha);
+            qreal sinAlpha = qSin(alpha);
+            vertices[2 * i].x = mRo + mRo * cosAlpha;
+            vertices[2 * i].y = mRo + mRo * sinAlpha;
+            vertices[2 * i + 1].x = mRo + mRi * cosAlpha;
+            vertices[2 * i + 1].y = mRo + mRi * sinAlpha;
         }
     }
 
-    if (ep) {
-        for (int i = 0; i <= ep; i++, n += 2) {
-            qreal alpha = ((mEndAngle - mAngle) * i / ep + mAngle) * M_PI / 180;
-            vertices[n].set(mRo + mRo * qCos(alpha), mRo + mRo * qSin(alpha),
-                            189, 35, 3, 255);
-            vertices[n + 1].set(mRo + mRi * qCos(alpha), mRo + mRi * qSin(alpha),
-                                63, 12, 0, 255);
+    if (mUpdateGeometry || mUpdateVertex || mUpdateTexture) {
+        qreal start = 0.5 - 0.5 * (mAngle - mStartAngle) / (mEndAngle - mStartAngle);
+        for (int i = 0; i <= mDiv; i++) {
+            qreal delta = 0.5 * i / mDiv;
+            vertices[2 * i].tx = 0;
+            vertices[2 * i].ty = start + delta;
+            vertices[2 * i + 1].tx = 1;
+            vertices[2 * i + 1].ty = start + delta;
         }
     }
+
+    mUpdateGeometry = mUpdateVertex = mUpdateTexture = false;
 
     node->markDirty(QSGNode::DirtyGeometry);
 
-    //qDebug() << "paint";
     return node;
 }
