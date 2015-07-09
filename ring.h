@@ -2,19 +2,21 @@
 #define RING_H
 
 #include <QQuickItem>
+#include <QSGGeometry>
+
+class QSGMaterial;
 
 class Ring : public QQuickItem
 {
     Q_OBJECT
-
     Q_PROPERTY(qreal ro READ ro WRITE setRo NOTIFY roChanged)
     Q_PROPERTY(qreal ri READ ri WRITE setRi NOTIFY riChanged)
     Q_PROPERTY(qreal startAngle READ startAngle WRITE setStartAngle NOTIFY startAngleChanged)
     Q_PROPERTY(qreal endAngle READ endAngle WRITE setEndAngle NOTIFY endAngleChanged)
     Q_PROPERTY(qreal angle READ angle WRITE setAngle NOTIFY angleChanged)
     Q_PROPERTY(int div READ div WRITE setDiv NOTIFY divChanged)
-    Q_PROPERTY(QString tex READ tex WRITE setTex NOTIFY texChanged)
-
+    Q_PROPERTY(QUrl tex READ tex WRITE setTex NOTIFY texChanged)
+    Q_PROPERTY(bool clockwise READ clockwise WRITE setClockwise NOTIFY clockwiseChanged)
 public:
     explicit Ring(QQuickItem *parent = 0);
     QSGNode *updatePaintNode(QSGNode *, UpdatePaintNodeData *);
@@ -25,7 +27,8 @@ public:
     qreal endAngle() const { return mEndAngle; }
     qreal angle() const { return mAngle; }
     int div() const { return mDiv; }
-    QString tex() const { return mTex; }
+    QUrl tex() const { return mTex; }
+    bool clockwise() const { return mClockwise; }
 
     void setRo(qreal);
     void setRi(qreal);
@@ -33,16 +36,18 @@ public:
     void setEndAngle(qreal);
     void setAngle(qreal);
     void setDiv(int);
-    void setTex(const QString &);
+    void setTex(const QUrl &);
+    void setClockwise(bool);
 
 signals:
-    void roChanged(qreal);
-    void riChanged(qreal);
-    void startAngleChanged(qreal);
-    void endAngleChanged(qreal);
-    void angleChanged(qreal);
-    void divChanged(int);
-    void texChanged(const QString &);
+    void roChanged();
+    void riChanged();
+    void startAngleChanged();
+    void endAngleChanged();
+    void angleChanged();
+    void divChanged();
+    void texChanged();
+    void clockwiseChanged();
 
 private:
     qreal mRo;
@@ -51,10 +56,13 @@ private:
     qreal mEndAngle;
     qreal mAngle;
     int mDiv;
-    QString mTex;
+    QUrl mTex;
+    bool mClockwise;
     bool mUpdateVertex;
-    bool mUpdateTexture;
-    bool mUpdateGeometry;
+
+    QSGMaterial *createMaterial(const QUrl &);
+    void setVertex(QSGGeometry::TexturedPoint2D *vertex, qreal a);
+    bool urlToPath(const QUrl &url, QString &path);
 };
 
 #endif // RING_H

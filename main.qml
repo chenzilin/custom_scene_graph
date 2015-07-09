@@ -22,16 +22,18 @@ Window {
 
     Ring {
         id: ring
-        div: 40
-        ro: 220
-        ri: 140
-        angle: 120
-        startAngle: 120
-        endAngle: 420
-        tex: "sekuai.png"
+        x: 20
+        y: 20
+        ro: 173
+        ri: 135
+        angle: 317
+        startAngle: 38
+        endAngle: 317
+        clockwise: true
+        tex: "file:t0.png"
         SequentialAnimation on angle {
-            NumberAnimation { to: ring.endAngle; duration: 5000; easing.type: Easing.InOutQuad }
             NumberAnimation { to: ring.startAngle; duration: 5000; easing.type: Easing.InOutQuad }
+            NumberAnimation { to: ring.endAngle; duration: 5000; easing.type: Easing.InOutQuad }
             loops: Animation.Infinite
         }
     }

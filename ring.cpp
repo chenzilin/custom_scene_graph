@@ -7,8 +7,8 @@
 
 Ring::Ring(QQuickItem *parent)
     : QQuickItem(parent), mRo(100), mRi(50),
-      mStartAngle(0), mEndAngle(360), mAngle(0), mDiv(20),
-      mUpdateVertex(false), mUpdateTexture(false), mUpdateGeometry(false)
+      mStartAngle(0), mEndAngle(360), mAngle(0), mDiv(8),
+      mClockwise(false), mUpdateVertex(false)
 {
     setWidth(mRo * 2);
     setHeight(mRo * 2);
@@ -24,7 +24,7 @@ void Ring::setRo(qreal v)
     setWidth(mRo * 2);
     setHeight(mRo * 2);
     mUpdateVertex = true;
-    emit roChanged(v);
+    emit roChanged();
     update();
 }
 
@@ -35,7 +35,7 @@ void Ring::setRi(qreal v)
 
     mRi = v;
     mUpdateVertex = true;
-    emit riChanged(v);
+    emit riChanged();
     update();
 }
 
@@ -46,7 +46,7 @@ void Ring::setStartAngle(qreal v)
 
     mStartAngle = v;
     mUpdateVertex = true;
-    emit startAngleChanged(v);
+    emit startAngleChanged();
     update();
 }
 
@@ -57,7 +57,7 @@ void Ring::setEndAngle(qreal v)
 
     mEndAngle = v;
     mUpdateVertex = true;
-    emit endAngleChanged(v);
+    emit endAngleChanged();
     update();
 }
 
@@ -67,8 +67,8 @@ void Ring::setAngle(qreal v)
         return;
 
     mAngle = v;
-    mUpdateTexture = true;
-    emit angleChanged(v);
+    mUpdateVertex = true;
+    emit angleChanged();
     update();
 }
 
@@ -78,18 +78,27 @@ void Ring::setDiv(int v)
         return;
 
     mDiv = v;
-    mUpdateGeometry = true;
-    emit divChanged(v);
+    emit divChanged();
     update();
 }
 
-void Ring::setTex(const QString &v)
+void Ring::setTex(const QUrl &v)
 {
     if (v == mTex)
         return;
 
     mTex = v;
-    emit texChanged(v);
+    emit texChanged();
+    update();
+}
+
+void Ring::setClockwise(bool v)
+{
+    if (v == mClockwise)
+        return;
+
+    mClockwise = v;
+    emit clockwiseChanged();
     update();
 }
 
@@ -100,53 +109,91 @@ QSGNode *Ring::updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData *)
 
     if (!oldNode) {
         node = new QSGGeometryNode;
-        geometry = new QSGGeometry(QSGGeometry::defaultAttributes_TexturedPoint2D(), 2 * (mDiv + 1));
+        geometry = new QSGGeometry(QSGGeometry::defaultAttributes_TexturedPoint2D(), 0);
         geometry->setDrawingMode(GL_TRIANGLE_STRIP);
+        geometry->setVertexDataPattern(QSGGeometry::StreamPattern);
         node->setGeometry(geometry);
         node->setFlag(QSGNode::OwnsGeometry);
-
-        QSGTextureMaterial *material = new QSGTextureMaterial;
-        QSGTexture *texture = window()->createTextureFromImage(QImage(mTex));
-        texture->setFiltering(QSGTexture::Linear);
-        material->setTexture(texture);
-        node->setMaterial(material);
+        node->setMaterial(createMaterial(mTex));
         node->setFlag(QSGNode::OwnsMaterial);
     }
     else {
         node = static_cast<QSGGeometryNode *>(oldNode);
         geometry = node->geometry();
-        if (mUpdateGeometry)
-            geometry->allocate(2 * (mDiv + 1));
     }
 
-    QSGGeometry::TexturedPoint2D *vertices = geometry->vertexDataAsTexturedPoint2D();
+    if (mUpdateVertex) {
+        int ai;
+        qreal a, da = (mEndAngle - mStartAngle) / mDiv;
 
-    if (mUpdateGeometry || mUpdateVertex) {
-        for (int i = 0; i <= mDiv; i++) {
-            qreal alpha = ((mEndAngle - mStartAngle) * i / mDiv + mStartAngle) * M_PI / 180;
-            qreal cosAlpha = qCos(alpha);
-            qreal sinAlpha = qSin(alpha);
-            vertices[2 * i].x = mRo + mRo * cosAlpha;
-            vertices[2 * i].y = mRo + mRo * sinAlpha;
-            vertices[2 * i + 1].x = mRo + mRi * cosAlpha;
-            vertices[2 * i + 1].y = mRo + mRi * sinAlpha;
+        if (mClockwise) {
+            a = mEndAngle;
+            ai = (mEndAngle - mAngle) / da;
         }
-    }
-
-    if (mUpdateGeometry || mUpdateVertex || mUpdateTexture) {
-        qreal start = 0.5 - 0.5 * (mAngle - mStartAngle) / (mEndAngle - mStartAngle);
-        for (int i = 0; i <= mDiv; i++) {
-            qreal delta = 0.5 * i / mDiv;
-            vertices[2 * i].tx = 0;
-            vertices[2 * i].ty = start + delta;
-            vertices[2 * i + 1].tx = 1;
-            vertices[2 * i + 1].ty = start + delta;
+        else {
+            a = mStartAngle;
+            ai = (mAngle - mStartAngle) / da;
         }
+
+        geometry->allocate(2 * (ai + 2));
+        QSGGeometry::TexturedPoint2D *vertices = geometry->vertexDataAsTexturedPoint2D();
+
+        for (int i = 0; i <= ai; i++) {
+            setVertex(&vertices[2 * i], a);
+            a += mClockwise ? -da : da;
+        }
+        setVertex(&vertices[2 * (ai + 1)], mAngle);
+
+        node->markDirty(QSGNode::DirtyGeometry);
+        mUpdateVertex = false;
     }
-
-    mUpdateGeometry = mUpdateVertex = mUpdateTexture = false;
-
-    node->markDirty(QSGNode::DirtyGeometry);
 
     return node;
+}
+
+QSGMaterial *Ring::createMaterial(const QUrl &url)
+{
+    QString path;
+    if (!urlToPath(url, path))
+        return NULL;
+
+    QSGTextureMaterial *material = new QSGTextureMaterial;
+    QSGTexture *texture = window()->createTextureFromImage(QImage(path));
+    texture->setFiltering(QSGTexture::None);
+    texture->setHorizontalWrapMode(QSGTexture::ClampToEdge);
+    texture->setVerticalWrapMode(QSGTexture::ClampToEdge);
+    material->setTexture(texture);
+    return material;
+}
+
+void Ring::setVertex(QSGGeometry::TexturedPoint2D *vertex, qreal a)
+{
+    qreal alpha = a * M_PI / 180;
+    qreal cosAlpha = qCos(alpha);
+    qreal sinAlpha = qSin(alpha);
+
+    qreal f = 1.02 / qCos((mEndAngle - mStartAngle) / mDiv / 2 * M_PI / 180);
+
+    vertex[0].x = mRo + mRo * f * cosAlpha;
+    vertex[0].y = mRo - mRo * f * sinAlpha;
+    vertex[0].tx = 0.5 + 0.5 * f * cosAlpha;
+    vertex[0].ty = 0.5 - 0.5 * f * sinAlpha;
+
+    vertex[1].x = mRo + mRi * cosAlpha;
+    vertex[1].y = mRo - mRi * sinAlpha;
+    vertex[1].tx = 0.5 + 0.5 * mRi / mRo * cosAlpha;
+    vertex[1].ty = 0.5 - 0.5 * mRi / mRo * sinAlpha;
+}
+
+bool Ring::urlToPath(const QUrl &url, QString &path)
+{
+    if (url.scheme() == "file")
+        path = url.toLocalFile();
+    else if (url.scheme() == "qrc")
+        path = ':' + url.path();
+    else {
+        qWarning() << "invalide path: " << url;
+        return false;
+    }
+    return true;
 }
