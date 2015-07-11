@@ -1,9 +1,10 @@
-#include "ring.h"
-#include <QSGNode>
+#include <QDebug>
 #include <QtMath>
+#include <QSGNode>
 #include <QQuickWindow>
 #include <QSGTextureMaterial>
-#include <QDebug>
+
+#include <ring.h>
 
 Ring::Ring(QQuickItem *parent)
     : QQuickItem(parent), mRo(100), mRi(50),
